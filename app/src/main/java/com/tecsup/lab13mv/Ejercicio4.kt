@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 // Los tres estados posibles de la pantalla
 enum class EstadoPantalla {
@@ -41,6 +44,14 @@ enum class EstadoPantalla {
 @Composable
 fun Ejercicio4(modifier: Modifier = Modifier) {
     var estado by remember { mutableStateOf(EstadoPantalla.Cargando) }
+
+    // Simula una carga real: despues de 3 segundos pasa solo a Contenido
+    LaunchedEffect(estado) {
+        if (estado == EstadoPantalla.Cargando) {
+            delay(3000)
+            estado = EstadoPantalla.Contenido
+        }
+    }
 
     Column(
         modifier = modifier
@@ -76,7 +87,11 @@ fun Ejercicio4(modifier: Modifier = Modifier) {
                     color = Color(0xFF1E88E5),
                     mensaje = "Cargando..."
                 ) {
-                    CircularProgressIndicator(color = Color.White)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = Color.White,
+                        strokeWidth = 5.dp
+                    )
                 }
 
                 EstadoPantalla.Contenido -> TarjetaEstado(
