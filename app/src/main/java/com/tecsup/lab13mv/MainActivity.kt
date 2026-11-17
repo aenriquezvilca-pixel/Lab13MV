@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Lab13MVTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Ejercicio3(modifier = Modifier.padding(innerPadding))
+                    Ejercicio4(modifier = Modifier.padding(innerPadding))
                 }
             }
         }
