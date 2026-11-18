@@ -3,10 +3,8 @@ package com.tecsup.lab13mv
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -20,820 +18,426 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sin
-import kotlin.random.Random
 
-// ---------------------------------------------------------------------------
-// DATOS DEL JUEGO: "Leyendas del Perú" (batallas anime contra monstruos)
-// ---------------------------------------------------------------------------
+private val Dorado = Color(0xFFFFD54F)
+private val Fondo = Color(0xFF120B1F)
 
-enum class Clima { Sol, Viento, Nieve, Lluvia }
-
-enum class PantallaJuego { Mapa, Batalla, MisionCompleta, Derrota }
-
-data class Monstruo(
-    val nombre: String,
-    val emoji: String,
-    val vidaMax: Int,
-    val ataque: Int,
-    val xp: Int
-)
-
-data class RegionPeru(
-    val nombre: String,
-    val clima: Clima,
-    val descripcionClima: String,
-    val emojiClima: String,
-    val colorCielo: Color,
-    val colorSuelo: Color,
-    val mision: String,
-    val monstruos: List<Monstruo>
-)
-
-data class Heroe(
-    val nivel: Int = 1,
-    val vidaMax: Int = 100,
-    val vida: Int = 100,
-    val ataque: Int = 12,
-    val xp: Int = 0
-) {
-    val xpSiguiente: Int get() = 50 * nivel
-}
-
-// Cada región es una misión con su propio clima y sus monstruos (el último es el jefe)
-val regiones = listOf(
-    RegionPeru(
-        nombre = "Costa · Huacachina",
-        clima = Clima.Sol,
-        descripcionClima = "Sol ardiente y desierto",
-        emojiClima = "☀️",
-        colorCielo = Color(0xFFFFB74D),
-        colorSuelo = Color(0xFFD7A86E),
-        mision = "Derrota a los monstruos de las dunas",
-        monstruos = listOf(
-            Monstruo("Sirena Oscura", "🧜", 40, 6, 30),
-            Monstruo("Alacrán Gigante", "🦂", 50, 7, 35),
-            Monstruo("Cóndor del Eclipse (Jefe)", "🦅", 90, 10, 80)
-        )
-    ),
-    RegionPeru(
-        nombre = "Altiplano · Titicaca",
-        clima = Clima.Viento,
-        descripcionClima = "Viento fuerte sobre el lago",
-        emojiClima = "🌬️",
-        colorCielo = Color(0xFF4FC3F7),
-        colorSuelo = Color(0xFF0277BD),
-        mision = "Calma las aguas del lago sagrado",
-        monstruos = listOf(
-            Monstruo("Sapo Gigante", "🐸", 60, 8, 40),
-            Monstruo("Cisne Espectral", "🦢", 70, 9, 45),
-            Monstruo("Espíritu del Lago (Jefe)", "🌊", 120, 12, 100)
-        )
-    ),
-    RegionPeru(
-        nombre = "Sierra · Cusco",
-        clima = Clima.Nieve,
-        descripcionClima = "Frío extremo y nevada",
-        emojiClima = "❄️",
-        colorCielo = Color(0xFF90A4AE),
-        colorSuelo = Color(0xFFECEFF1),
-        mision = "Sube a la montaña y vence al Apu helado",
-        monstruos = listOf(
-            Monstruo("Ukuku Salvaje", "🐻", 80, 10, 50),
-            Monstruo("Llama Oni", "🦙", 90, 11, 55),
-            Monstruo("Apu Helado (Jefe)", "🏔️", 150, 14, 130)
-        )
-    ),
-    RegionPeru(
-        nombre = "Selva · Amazonas",
-        clima = Clima.Lluvia,
-        descripcionClima = "Lluvia tropical y humedad",
-        emojiClima = "🌧️",
-        colorCielo = Color(0xFF2E7D32),
-        colorSuelo = Color(0xFF1B3D1F),
-        mision = "Protege la selva del gran Amaru",
-        monstruos = listOf(
-            Monstruo("Otorongo Sombra", "🐆", 100, 13, 60),
-            Monstruo("Yacumama", "🐍", 120, 14, 70),
-            Monstruo("Amaru Esmeralda (Jefe)", "🐉", 220, 17, 200)
-        )
-    )
-)
-
-// ---------------------------------------------------------------------------
-// ESTADO Y LÓGICA DEL JUEGO
-// ---------------------------------------------------------------------------
-
-class JuegoAnime {
-    var pantalla by mutableStateOf(PantallaJuego.Mapa)
-    var heroe by mutableStateOf(Heroe())
-    var regionActual by mutableIntStateOf(0)
-    var desbloqueadas by mutableIntStateOf(1)
-    var kills by mutableIntStateOf(0)
-
-    var monstruo by mutableStateOf<Monstruo?>(null)
-    var monstruoVisible by mutableStateOf(false)
-    var vidaMonstruo by mutableIntStateOf(0)
-
-    var energia by mutableIntStateOf(0)
-    var pociones by mutableIntStateOf(3)
-    var mensaje by mutableStateOf("")
-    var ocupado by mutableStateOf(false)
-
-    // Banderas que disparan las animaciones
-    var heroeAtacando by mutableStateOf(false)
-    var heroeGolpeado by mutableStateOf(false)
-    var monstruoAtacando by mutableStateOf(false)
-    var monstruoGolpeado by mutableStateOf(false)
-    var subioNivel by mutableStateOf(false)
-
-    val region: RegionPeru get() = regiones[regionActual]
-
-    suspend fun iniciarMision(indice: Int) {
-        ocupado = true
-        regionActual = indice
-        kills = 0
-        energia = 0
-        pociones = 3
-        heroe = heroe.copy(vida = heroe.vidaMax)
-        monstruoVisible = false
-        monstruo = null
-        pantalla = PantallaJuego.Batalla
-        mensaje = "Llegas a ${region.nombre}..."
-        delay(900)
-        aparecerMonstruo()
-    }
-
-    private fun aparecerMonstruo() {
-        val m = region.monstruos[kills]
-        monstruo = m
-        vidaMonstruo = m.vidaMax
-        monstruoVisible = true
-        mensaje = "¡Aparece ${m.nombre}!"
-        ocupado = false
-    }
-
-    suspend fun atacar(especial: Boolean) {
-        val m = monstruo ?: return
-        if (ocupado || !monstruoVisible) return
-        if (especial && energia < 100) return
-        ocupado = true
-
-        heroeAtacando = true
-        delay(180)
-        val base = heroe.ataque + Random.nextInt(0, 5)
-        val dano = if (especial) (base * 2.5f).toInt() else base
-        vidaMonstruo = max(0, vidaMonstruo - dano)
-        energia = if (especial) 0 else min(100, energia + 25)
-        monstruoGolpeado = true
-        mensaje = if (especial) "¡ATAQUE SOLAR! Inti causa $dano de daño"
-        else "Inti ataca: $dano de daño"
-        delay(250)
-        heroeAtacando = false
-        monstruoGolpeado = false
-
-        if (vidaMonstruo == 0) derrotarMonstruo(m) else contraatacar(m)
-    }
-
-    suspend fun curar() {
-        val m = monstruo ?: return
-        if (ocupado || !monstruoVisible || pociones == 0 || heroe.vida == heroe.vidaMax) return
-        ocupado = true
-        pociones--
-        val cura = (heroe.vidaMax * 0.4f).toInt()
-        heroe = heroe.copy(vida = min(heroe.vidaMax, heroe.vida + cura))
-        mensaje = "Inti bebe una poción: +$cura de vida"
-        delay(500)
-        contraatacar(m)
-    }
-
-    private suspend fun contraatacar(m: Monstruo) {
-        delay(500)
-        monstruoAtacando = true
-        delay(200)
-        val dano = m.ataque + Random.nextInt(0, 3)
-        heroe = heroe.copy(vida = max(0, heroe.vida - dano))
-        heroeGolpeado = true
-        mensaje = "${m.nombre} te golpea: -$dano de vida"
-        delay(250)
-        monstruoAtacando = false
-        heroeGolpeado = false
-        if (heroe.vida == 0) {
-            delay(500)
-            pantalla = PantallaJuego.Derrota
-        }
-        ocupado = false
-    }
-
-    private suspend fun derrotarMonstruo(m: Monstruo) {
-        monstruoVisible = false
-        kills++
-        mensaje = "¡Derrotaste a ${m.nombre}! +${m.xp} XP"
-
-        // Recompensa por cada monstruo: más vida máxima, más fuerza y un poco de curación
-        var h = heroe.copy(
-            vidaMax = heroe.vidaMax + 5,
-            ataque = heroe.ataque + 1,
-            xp = heroe.xp + m.xp
-        )
-        h = h.copy(vida = min(h.vidaMax, h.vida + h.vidaMax / 4))
-
-        // Si junta suficiente XP sube de nivel: gran aumento de vida y fuerza
-        var subio = false
-        while (h.xp >= h.xpSiguiente) {
-            h = h.copy(
-                xp = h.xp - h.xpSiguiente,
-                nivel = h.nivel + 1,
-                vidaMax = h.vidaMax + 15,
-                ataque = h.ataque + 4
-            )
-            h = h.copy(vida = h.vidaMax)
-            subio = true
-        }
-        heroe = h
-        if (subio) subioNivel = true
-
-        delay(1400)
-        subioNivel = false
-
-        if (kills >= region.monstruos.size) {
-            desbloqueadas = max(desbloqueadas, min(regiones.size, regionActual + 2))
-            pantalla = PantallaJuego.MisionCompleta
-            ocupado = false
-        } else {
-            aparecerMonstruo()
-        }
-    }
-
-    fun volverAlMapa() {
-        pantalla = PantallaJuego.Mapa
-    }
-}
-
-// ---------------------------------------------------------------------------
-// PANTALLA PRINCIPAL: AnimatedContent cambia entre mapa, batalla y resultados
-// ---------------------------------------------------------------------------
-
+// Punto de entrada del Ejercicio Final: Kawaii Kart Racing
 @Composable
-fun EjercicioFinal(modifier: Modifier = Modifier) {
-    val juego = remember { JuegoAnime() }
-    val scope = rememberCoroutineScope()
-
-    AnimatedContent(
-        targetState = juego.pantalla,
-        modifier = modifier.fillMaxSize(),
-        transitionSpec = { fadeIn(tween(500)) togetherWith fadeOut(tween(300)) },
-        label = "pantallasJuego"
-    ) { pantallaActual ->
-        when (pantallaActual) {
-            PantallaJuego.Mapa -> PantallaMapa(juego) { indice ->
-                scope.launch { juego.iniciarMision(indice) }
-            }
-
-            PantallaJuego.Batalla -> PantallaBatalla(juego, scope)
-
-            PantallaJuego.MisionCompleta -> {
-                val ultima = juego.regionActual == regiones.size - 1
-                PantallaResultado(
-                    emoji = "🏆",
-                    titulo = if (ultima) "¡Salvaste todo el Perú!" else "¡Misión cumplida!",
-                    detalle = "Liberaste ${juego.region.nombre}.\n" +
-                            "Inti es nivel ${juego.heroe.nivel} · Vida ${juego.heroe.vidaMax} · Fuerza ${juego.heroe.ataque}",
-                    fondo = Color(0xFF1B5E20)
-                ) {
-                    Button(onClick = { juego.volverAlMapa() }) { Text("Volver al mapa") }
-                }
-            }
-
-            PantallaJuego.Derrota -> PantallaResultado(
-                emoji = "💀",
-                titulo = "Has caído...",
-                detalle = "Pero tu poder se conserva: nivel ${juego.heroe.nivel}, " +
-                        "vida ${juego.heroe.vidaMax}, fuerza ${juego.heroe.ataque}.",
-                fondo = Color(0xFF7F0000)
-            ) {
-                Button(onClick = { scope.launch { juego.iniciarMision(juego.regionActual) } }) {
-                    Text("Reintentar misión")
-                }
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { juego.volverAlMapa() }) { Text("Volver al mapa") }
+fun EjercicioFinal() {
+    val juego = remember { JuegoKart() }
+    Box(Modifier.fillMaxSize().background(Fondo)) {
+        AnimatedContent(
+            targetState = juego.pantalla,
+            transitionSpec = { fadeIn(tween(400)) togetherWith fadeOut(tween(300)) },
+            label = "pantallas"
+        ) { pantalla ->
+            when (pantalla) {
+                PantallaKart.Seleccion -> PantallaSeleccionKart(juego)
+                PantallaKart.Mapa -> PantallaMapaKart(juego)
+                PantallaKart.Carrera -> juego.carrera?.let { PantallaCarrera(juego, it) }
             }
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// MAPA DE MISIONES
+// SELECCIÓN DE CORREDOR
 // ---------------------------------------------------------------------------
-
 @Composable
-private fun PantallaMapa(juego: JuegoAnime, onMision: (Int) -> Unit) {
+private fun PantallaSeleccionKart(juego: JuegoKart) {
+    val c = juego.corredor
+    val brillo by animateColorAsState(c.kart, tween(500), label = "brillo")
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF1A237E), Color(0xFF0D1B2A))))
-            .systemBarsPadding()
-            .padding(16.dp)
+            .background(Brush.verticalGradient(listOf(Fondo, brillo.copy(alpha = 0.55f), Fondo)))
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("🇵🇪 Leyendas del Perú", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("Elige tu misión, guerrero Inti", color = Color(0xFFB0BEC5), fontSize = 14.sp)
+        Text("KAWAII KART RACING", color = Dorado, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+        Text("Elige a tu corredor", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+        Spacer(Modifier.height(8.dp))
+
+        AnimatedContent(
+            targetState = juego.corredorIdx,
+            transitionSpec = { (fadeIn(tween(250)) + scaleIn(initialScale = 0.8f)) togetherWith fadeOut(tween(150)) },
+            label = "preview",
+            modifier = Modifier.weight(1f)
+        ) { idx ->
+            KartVista(corredores[idx], Modifier.fillMaxSize())
+        }
+
+        Text(c.nombre, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(6.dp))
+        BarraStat("VEL", c.velocidad, Color(0xFFFF5252))
+        BarraStat("ACE", c.aceleracion, Color(0xFFFFC107))
+        BarraStat("GIRO", c.giro, Color(0xFF40C4FF))
         Spacer(Modifier.height(12.dp))
 
-        PanelHeroe(juego.heroe, mostrarEnergia = false, juego = juego)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(corredores) { i, cor ->
+                val sel = i == juego.corredorIdx
+                val borde by animateColorAsState(if (sel) Dorado else Color(0x33FFFFFF), label = "borde")
+                MascotaVista(
+                    cor,
+                    Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0x44000000))
+                        .border(3.dp, borde, RoundedCornerShape(16.dp))
+                        .clickable { juego.corredorIdx = i }
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Button(
+            onClick = { juego.pantalla = PantallaKart.Mapa },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081)),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth().height(54.dp)
+        ) {
+            Text("🏁 ¡A CORRER!", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
 
+@Composable
+private fun BarraStat(nombre: String, valor: Int, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(nombre, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(52.dp))
+        for (i in 1..5) {
+            val lleno by animateColorAsState(if (i <= valor) color else Color(0x33FFFFFF), label = "stat")
+            Box(
+                Modifier
+                    .padding(end = 4.dp)
+                    .size(width = 28.dp, height = 10.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(lleno)
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MODO AVENTURA: mapa de pistas (cada una con su clima)
+// ---------------------------------------------------------------------------
+@Composable
+private fun PantallaMapaKart(juego: JuegoKart) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF1B1035), Color(0xFF3E1F47))))
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(14.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            MascotaVista(juego.corredor, Modifier.size(60.dp))
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text("MODO AVENTURA", color = Dorado, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text("${juego.corredor.nombre} · 🏆 ${juego.trofeos.size}/${regiones.size}", color = Color.White, fontSize = 13.sp)
+            }
+            Button(
+                onClick = { juego.pantalla = PantallaKart.Seleccion },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0x55FFFFFF))
+            ) { Text("Cambiar") }
+        }
         Spacer(Modifier.height(12.dp))
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            itemsIndexed(regiones) { indice, region ->
-                TarjetaRegion(region, indice < juego.desbloqueadas) { onMision(indice) }
+            regiones.forEachIndexed { i, r ->
+                TarjetaPista(
+                    indice = i,
+                    region = r,
+                    abierta = i < juego.desbloqueadas,
+                    trofeo = i in juego.trofeos,
+                    mejor = juego.mejorPos[i],
+                    siguiente = i == juego.desbloqueadas - 1 && i !in juego.trofeos
+                ) { juego.iniciar(i) }
             }
         }
+        Text(
+            "Termina 1º o 2º para desbloquear la siguiente pista",
+            color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        )
     }
 }
 
 @Composable
-private fun TarjetaRegion(region: RegionPeru, desbloqueada: Boolean, onClick: () -> Unit) {
-    val fondo by animateColorAsState(
-        targetValue = if (desbloqueada) region.colorCielo else Color(0xFF455A64),
-        animationSpec = tween(800),
-        label = "fondoRegion"
-    )
+private fun TarjetaPista(
+    indice: Int,
+    region: RegionPeru,
+    abierta: Boolean,
+    trofeo: Boolean,
+    mejor: Int?,
+    siguiente: Boolean,
+    onClick: () -> Unit
+) {
+    val inf = rememberInfiniteTransition(label = "pista")
+    val pulso by inf.animateFloat(1f, 1.03f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "pulso")
+    val escala = if (siguiente) pulso else 1f
+    val fondo = if (abierta) Brush.horizontalGradient(listOf(region.colorCielo, region.colorSuelo))
+    else Brush.horizontalGradient(listOf(Color(0xFF444444), Color(0xFF2A2A2A)))
     Row(
-        modifier = Modifier
+        Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .scale(escala)
+            .clip(RoundedCornerShape(20.dp))
             .background(fondo)
+            .border(if (siguiente) 3.dp else 1.dp, if (siguiente) Dorado else Color(0x55FFFFFF), RoundedCornerShape(20.dp))
+            .clickable(enabled = abierta, onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(if (desbloqueada) region.emojiClima else "🔒", fontSize = 40.sp)
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(region.nombre, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-            Text(region.descripcionClima, color = Color(0xEEFFFFFF), fontSize = 13.sp)
-            Text(region.mision, color = Color(0xCCFFFFFF), fontSize = 12.sp)
+        Box(
+            Modifier.size(58.dp).clip(CircleShape).background(Color(0x55000000)),
+            contentAlignment = Alignment.Center
+        ) { Text(if (abierta) region.emojiClima else "🔒", fontSize = 28.sp) }
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text("Pista ${indice + 1}", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+            Text(region.nombre, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+            Text(if (abierta) region.descripcionClima else "Bloqueada", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
         }
-        Spacer(Modifier.width(8.dp))
-        Button(
-            onClick = onClick,
-            enabled = desbloqueada,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-        ) {
-            Text(if (desbloqueada) "Ir" else "Bloqueada", fontSize = 12.sp)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(if (trofeo) "🏆" else if (abierta) "🏁" else "", fontSize = 26.sp)
+            if (mejor != null) Text("Mejor: ${mejor}º", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// BATALLA
+// CARRERA
 // ---------------------------------------------------------------------------
-
 @Composable
-private fun PantallaBatalla(juego: JuegoAnime, scope: CoroutineScope) {
-    val region = juego.region
-    val cielo by animateColorAsState(region.colorCielo, tween(1200), label = "cielo")
-    val suelo by animateColorAsState(region.colorSuelo, tween(1200), label = "suelo")
+private fun PantallaCarrera(juego: JuegoKart, c: CarreraKart) {
+    LaunchedEffect(c) {
+        for (n in 3 downTo 1) {
+            c.cuenta = n
+            delay(900)
+        }
+        c.cuenta = 0
+        c.fase = FaseCarrera.Corriendo
+        var ultimo = withFrameNanos { it }
+        while (c.fase == FaseCarrera.Corriendo) {
+            val ahora = withFrameNanos { it }
+            c.update(((ahora - ultimo) / 1_000_000_000f).coerceAtMost(0.05f))
+            ultimo = ahora
+        }
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(cielo, suelo)))
-    ) {
-        // Efecto de clima animado según la región
-        EfectoClima(region.clima)
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        Canvas(Modifier.fillMaxSize()) {
+            c.frame // leer el estado para redibujar en cada cuadro
+            dibujarCarrera(c)
+        }
+        ClimaAnimado(clima = c.pista.clima, modifier = Modifier.fillMaxSize())
+        LineasVelocidad(activa = c.turboActivo, modifier = Modifier.fillMaxSize(), color = Color(0xFF80D8FF))
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(12.dp)
+        // ---- HUD superior ----
+        Row(
+            Modifier.fillMaxWidth().statusBarsPadding().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
         ) {
-            Text(
-                "${region.emojiClima} ${region.nombre} · ${region.descripcionClima}",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp
-            )
-            Text(
-                "Misión: ${region.mision} (${juego.kills}/${region.monstruos.size})",
-                color = Color(0xEEFFFFFF),
-                fontSize = 12.sp
-            )
-            Spacer(Modifier.height(4.dp))
-            BarraProgreso(
-                progreso = juego.kills / region.monstruos.size.toFloat(),
-                color = Color(0xFFFFD54F),
-                modifier = Modifier.fillMaxWidth(),
-                alto = 8.dp
-            )
-
-            // Arena de combate
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HeroeEnArena(juego)
-                MonstruoEnArena(juego)
-            }
-
-            // Mensaje de combate con transición suave
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0x88000000))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 AnimatedContent(
-                    targetState = juego.mensaje,
-                    transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) },
-                    label = "mensajeCombate"
-                ) { texto ->
+                    targetState = c.posicion,
+                    transitionSpec = { (scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn()) togetherWith fadeOut() },
+                    label = "posicion"
+                ) { p ->
                     Text(
-                        texto,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center
+                        "${p}º", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold,
+                        color = when (p) { 1 -> Dorado; 2 -> Color(0xFFCFD8DC); 3 -> Color(0xFFFFAB91); else -> Color.White }
                     )
                 }
+                Column(Modifier.padding(start = 8.dp)) {
+                    Text("Vuelta ${c.vuelta}/${c.vueltas}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(c.pista.nombre, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
+                }
             }
-
-            Spacer(Modifier.height(8.dp))
-            PanelHeroe(juego.heroe, mostrarEnergia = true, juego = juego)
-            Spacer(Modifier.height(8.dp))
-
-            // Botones de acción
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val puedeActuar = !juego.ocupado && juego.monstruoVisible
-                Button(
-                    onClick = { scope.launch { juego.atacar(false) } },
-                    enabled = puedeActuar,
-                    modifier = Modifier.weight(1f)
-                ) { Text("⚔️ Atacar", fontSize = 13.sp) }
-
-                Button(
-                    onClick = { scope.launch { juego.atacar(true) } },
-                    enabled = puedeActuar && juego.energia >= 100,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6F00))
-                ) { Text("🔥 Solar", fontSize = 13.sp) }
-
-                Button(
-                    onClick = { scope.launch { juego.curar() } },
-                    enabled = puedeActuar && juego.pociones > 0,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
-                ) { Text("🧪 x${juego.pociones}", fontSize = 13.sp) }
+            Column(horizontalAlignment = Alignment.End) {
+                Box(
+                    Modifier.size(58.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x88000000))
+                        .border(2.dp, Color.White, RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AnimatedContent(
+                        targetState = c.item,
+                        transitionSpec = { (scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn()) togetherWith scaleOut() + fadeOut() },
+                        label = "item"
+                    ) { it0 -> Text(it0?.emoji ?: "❔", fontSize = 30.sp) }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "🍪 ${c.galletas}/10" + (if (c.galletas >= 10) " ⚡" else "") + "\n🪙 ${c.monedas}",
+                    color = Dorado, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, textAlign = TextAlign.End
+                )
             }
         }
 
-        // Aviso de subida de nivel
+        // ---- Mensajes y cuenta regresiva ----
         AnimatedVisibility(
-            visible = juego.subioNivel,
+            visible = c.mensaje.isNotEmpty(),
+            modifier = Modifier.align(Alignment.Center).padding(bottom = 140.dp),
+            enter = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
+            exit = fadeOut()
+        ) {
+            Text(c.mensaje, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        }
+        AnimatedContent(
+            targetState = c.cuenta,
+            transitionSpec = { (scaleIn(initialScale = 2f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.5f) + fadeOut()) },
             modifier = Modifier.align(Alignment.Center),
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-            exit = scaleOut() + fadeOut()
-        ) {
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xF2FFD54F))
-                    .padding(horizontal = 32.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("⭐ ¡NIVEL ${juego.heroe.nivel}! ⭐", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4E342E))
-                Text("+ Vida  + Fuerza", fontSize = 16.sp, color = Color(0xFF4E342E))
+            label = "cuenta"
+        ) { n ->
+            if (n >= 0) {
+                Text(
+                    if (n > 0) "$n" else "¡YA!",
+                    color = if (n > 0) Color.White else Dorado,
+                    fontSize = 96.sp, fontWeight = FontWeight.ExtraBold
+                )
             }
         }
-    }
-}
 
-@Composable
-private fun HeroeEnArena(juego: JuegoAnime) {
-    // Embestida hacia el monstruo al atacar y retroceso al ser golpeado
-    val avance by animateDpAsState(
-        targetValue = if (juego.heroeAtacando) 70.dp else 0.dp,
-        animationSpec = tween(150),
-        label = "avanceHeroe"
-    )
-    val retroceso by animateDpAsState(
-        targetValue = if (juego.heroeGolpeado) (-14).dp else 0.dp,
-        animationSpec = tween(80),
-        label = "retrocesoHeroe"
-    )
-    val fondo by animateColorAsState(
-        targetValue = if (juego.heroeGolpeado) Color(0xAAFF1744) else Color(0x33000000),
-        animationSpec = tween(120),
-        label = "flashHeroe"
-    )
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .offset(x = avance + retroceso)
-                .size(100.dp)
-                .clip(CircleShape)
-                .background(fondo),
-            contentAlignment = Alignment.Center
+        // ---- Barra de avance hacia la meta ----
+        Column(
+            Modifier.align(Alignment.CenterStart).padding(start = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("🥷", fontSize = 56.sp)
+            Text("🏁", fontSize = 20.sp)
+            Text("${c.faltan} m", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(4.dp))
+            Canvas(Modifier.size(width = 36.dp, height = 240.dp)) {
+                c.frame
+                dibujarAvance(c)
+            }
         }
-        Text("Inti", color = Color.White, fontWeight = FontWeight.Bold)
-    }
-}
 
-@Composable
-private fun MonstruoEnArena(juego: JuegoAnime) {
-    val avance by animateDpAsState(
-        targetValue = if (juego.monstruoAtacando) (-70).dp else 0.dp,
-        animationSpec = tween(150),
-        label = "avanceMonstruo"
-    )
-    val retroceso by animateDpAsState(
-        targetValue = if (juego.monstruoGolpeado) 14.dp else 0.dp,
-        animationSpec = tween(80),
-        label = "retrocesoMonstruo"
-    )
-    val fondo by animateColorAsState(
-        targetValue = if (juego.monstruoGolpeado) Color(0xAAFF1744) else Color(0x33000000),
-        animationSpec = tween(120),
-        label = "flashMonstruo"
-    )
-
-    // El espacio queda reservado para que el diseño no salte cuando el monstruo desaparece
-    Box(
-        modifier = Modifier
-            .width(150.dp)
-            .height(220.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        AnimatedVisibility(
-            visible = juego.monstruoVisible,
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(tween(400)),
-            exit = scaleOut(tween(500)) + fadeOut(tween(500))
+        // ---- Controles táctiles ----
+        Row(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
         ) {
-            val m = juego.monstruo
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BotonControl("◀", Color(0xFF1E88E5), { c.izq = true }, { c.izq = false })
+                BotonControl("▶", Color(0xFF1E88E5), { c.der = true }, { c.der = false })
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BotonControl("🌀", Color(0xFFFF6D00), { c.derrape = true }, { c.derrape = false })
+                BotonControl("🎁", Color(0xFFD81B60), { c.usarItem() }, { })
+            }
+        }
+
+        // ---- Resultado ----
+        AnimatedVisibility(
+            visible = c.fase == FaseCarrera.Fin,
+            modifier = Modifier.align(Alignment.Center),
+            enter = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
+            exit = fadeOut()
+        ) {
             Column(
-                modifier = Modifier.width(150.dp),
+                Modifier
+                    .padding(24.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xEE120B1F))
+                    .border(3.dp, Dorado, RoundedCornerShape(24.dp))
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    m?.nombre ?: "",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
+                    when (c.posFinal) { 1 -> "🏆"; 2 -> "🥈"; 3 -> "🥉"; else -> "🏁" },
+                    fontSize = 56.sp
                 )
-                Spacer(Modifier.height(4.dp))
-                BarraProgreso(
-                    progreso = juego.vidaMonstruo / (m?.vidaMax ?: 1).toFloat(),
-                    color = Color(0xFFEF5350),
-                    modifier = Modifier.fillMaxWidth(),
-                    alto = 12.dp
+                Text("${c.posFinal}º lugar", color = Dorado, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    when {
+                        c.posFinal == 1 -> "¡Trofeo conseguido!"
+                        c.posFinal == 2 -> "¡Pasas a la siguiente pista!"
+                        else -> "Inténtalo otra vez: necesitas 1º o 2º"
+                    },
+                    color = Color.White, fontSize = 14.sp, textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .offset(x = avance + retroceso)
-                        .size(110.dp)
-                        .clip(CircleShape)
-                        .background(fondo),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(m?.emoji ?: "", fontSize = 64.sp)
-                }
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = { juego.terminar(c.posFinal) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
+                ) { Text("Continuar", fontWeight = FontWeight.Bold) }
             }
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// CLIMA ANIMADO (sol, viento, nieve y lluvia dibujados en un Canvas)
-// ---------------------------------------------------------------------------
-
 @Composable
-private fun EfectoClima(clima: Clima) {
-    val transicion = rememberInfiniteTransition(label = "clima")
-    val t by transicion.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "tiempoClima"
-    )
-
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
-        when (clima) {
-            Clima.Lluvia -> repeat(70) { i ->
-                val x = ((i * 53) % 100) / 100f * w
-                val y = ((((i * 37) % 100) / 100f) + t * 2f) % 1f * h
-                drawLine(Color(0x99E1F5FE), Offset(x, y), Offset(x - 8f, y + 40f), strokeWidth = 3f)
-            }
-
-            Clima.Nieve -> repeat(60) { i ->
-                val x = ((i * 47) % 100) / 100f * w + sin(t * 2f * PI.toFloat() + i) * 15f
-                val y = ((((i * 29) % 100) / 100f) + t) % 1f * h
-                drawCircle(Color(0xCCFFFFFF), radius = 4f + (i % 3) * 2f, center = Offset(x, y))
-            }
-
-            Clima.Viento -> repeat(25) { i ->
-                val x = ((((i * 41) % 100) / 100f) + t * 1.5f) % 1f * w
-                val y = ((i * 17) % 100) / 100f * h
-                drawLine(Color(0x88FFFFFF), Offset(x, y), Offset(x + 90f, y), strokeWidth = 3f)
-            }
-
-            Clima.Sol -> {
-                val pulso = 1f + 0.12f * sin(t * 2f * PI.toFloat())
-                val centro = Offset(w * 0.85f, h * 0.08f)
-                drawCircle(Color(0x55FFF176), radius = 150f * pulso, center = centro)
-                drawCircle(Color(0xAAFFEB3B), radius = 65f * pulso, center = centro)
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// COMPONENTES REUTILIZABLES
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun BarraProgreso(
-    progreso: Float,
-    color: Color,
-    modifier: Modifier = Modifier,
-    alto: Dp = 12.dp
-) {
-    val animado by animateFloatAsState(
-        targetValue = progreso.coerceIn(0f, 1f),
-        animationSpec = tween(500),
-        label = "barra"
-    )
+private fun BotonControl(texto: String, color: Color, onDown: () -> Unit, onUp: () -> Unit) {
+    var presionado by remember { mutableStateOf(false) }
+    val escala by animateFloatAsState(if (presionado) 0.86f else 1f, label = "boton")
     Box(
-        modifier = modifier
-            .height(alto)
-            .clip(RoundedCornerShape(50))
-            .background(Color(0x55000000))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth(animado)
-                .background(color)
-        )
-    }
-}
-
-@Composable
-private fun BarraVida(vida: Int, vidaMax: Int, modifier: Modifier = Modifier) {
-    val p = vida / vidaMax.toFloat()
-    // La barra cambia de color (verde, amarillo, rojo) según la vida que queda
-    val color by animateColorAsState(
-        targetValue = when {
-            p > 0.5f -> Color(0xFF66BB6A)
-            p > 0.25f -> Color(0xFFFFCA28)
-            else -> Color(0xFFEF5350)
-        },
-        animationSpec = tween(400),
-        label = "colorVida"
-    )
-    BarraProgreso(progreso = p, color = color, modifier = modifier, alto = 14.dp)
-}
-
-@Composable
-private fun PanelHeroe(heroe: Heroe, mostrarEnergia: Boolean, juego: JuegoAnime) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0x77000000))
-            .padding(12.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("🥷 Inti · Nivel ${heroe.nivel}", color = Color.White, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.weight(1f))
-            Text("⚔️ Fuerza ${heroe.ataque}", color = Color(0xFFFFD54F), fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(6.dp))
-        Text("❤️ Vida ${heroe.vida}/${heroe.vidaMax}", color = Color.White, fontSize = 12.sp)
-        BarraVida(heroe.vida, heroe.vidaMax, Modifier.fillMaxWidth())
-        Spacer(Modifier.height(4.dp))
-        Text("✨ XP ${heroe.xp}/${heroe.xpSiguiente}", color = Color.White, fontSize = 12.sp)
-        BarraProgreso(
-            progreso = heroe.xp / heroe.xpSiguiente.toFloat(),
-            color = Color(0xFF42A5F5),
-            modifier = Modifier.fillMaxWidth(),
-            alto = 8.dp
-        )
-        if (mostrarEnergia) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                if (juego.energia >= 100) "🔥 ¡Ataque Solar listo!" else "🔥 Energía ${juego.energia}/100",
-                color = Color.White,
-                fontSize = 12.sp
-            )
-            BarraProgreso(
-                progreso = juego.energia / 100f,
-                color = Color(0xFFFF9800),
-                modifier = Modifier.fillMaxWidth(),
-                alto = 8.dp
-            )
-        }
-    }
-}
-
-@Composable
-private fun PantallaResultado(
-    emoji: String,
-    titulo: String,
-    detalle: String,
-    fondo: Color,
-    botones: @Composable ColumnScope.() -> Unit
-) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(fondo, Color(0xFF000000)))),
+        Modifier
+            .size(62.dp)
+            .scale(escala)
+            .clip(CircleShape)
+            .background(color.copy(alpha = if (presionado) 1f else 0.75f))
+            .border(2.dp, Color.White, CircleShape)
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    presionado = true
+                    onDown()
+                    tryAwaitRelease()
+                    presionado = false
+                    onUp()
+                })
+            },
         contentAlignment = Alignment.Center
-    ) {
-        AnimatedVisibility(
-            visible = visible,
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(tween(600))
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(emoji, fontSize = 90.sp)
-                Spacer(Modifier.height(8.dp))
-                Text(titulo, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(8.dp))
-                Text(detalle, color = Color(0xFFE0E0E0), fontSize = 15.sp, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(24.dp))
-                botones()
-            }
-        }
-    }
+    ) { Text(texto, fontSize = 24.sp, color = Color.White) }
 }
